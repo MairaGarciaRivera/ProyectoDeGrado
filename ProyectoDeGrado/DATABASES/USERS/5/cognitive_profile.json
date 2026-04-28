@@ -1,0 +1,19 @@
+[
+  {
+    "chat_id": "25b27610-5d46-4158-9007-26fc41be05cd",
+    "user_id": 5,
+    "area": "matematicas",
+    "general_level": "intermediate",
+    "strong_areas": [
+      "algebra"
+    ],
+    "weak_areas": [],
+    "frequent_mistakes": [],
+    "progress": [
+      "geometria"
+    ],
+    "created_at": "2026-02-18T11:23:03.879226",
+    "last_update": "2026-02-18T11:23:03.879236",
+    "last_updated": "2026-02-18T11:23:03.879246"
+  }
+]
