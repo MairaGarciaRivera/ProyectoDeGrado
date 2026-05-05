@@ -163,31 +163,32 @@ class UserRegisterForm(UserCreationForm):
         widget=forms.EmailInput(attrs={"class": "input-field"})
     )
     username = forms.CharField(
-        widget=forms.TextInput(attrs={"class": "input-field"})
+        help_text="150 caracteres o menos. Solo letras, dígitos y @/./+/-/_",
+        widget=forms.TextInput(attrs={
+            "class": "input-field",
+            "placeholder": "Ej: maria_garcia"
+        })
     )
     password1 = forms.CharField(
         label="Contraseña",
+        help_text="Mínimo 8 caracteres. No uses solo números ni secuencias como 123.",
         widget=forms.PasswordInput(attrs={
             "class": "input-field",
-            "placeholder": "Ingrese su contraseña"
+            "placeholder": "Mínimo 8 caracteres"
+        })
+    )
+    password2 = forms.CharField(
+        label="Confirmar contraseña",
+        help_text="Ingresa la misma contraseña para verificar.",
+        widget=forms.PasswordInput(attrs={
+            "class": "input-field",
+            "placeholder": "Repite tu contraseña"
         })
     )
 
-    password2 = forms.CharField(
-        label="Confirmar contraseña",
-        widget=forms.PasswordInput(attrs={
-            "class": "input-field",
-            "placeholder": "Ingrese nuevamente su contraseña"
-        })
-    )
     class Meta:
         model = User
         fields = ["username", "email", "password1", "password2"]
-        widgets = {
-            "username": forms.TextInput(attrs={"class": "input-field"}),
-            "email": forms.EmailInput(attrs={"class": "input-field"}),
-            "password1": forms.PasswordInput(attrs={"class": "input-field"})
-        }
 
     def save(self, commit=True):
         user = super().save(commit=False)
@@ -199,7 +200,7 @@ class UserRegisterForm(UserCreationForm):
 class PersonaForm(forms.ModelForm):
     class Meta:
         model = Persona
-        exclude = ["user"]
+        exclude = ["perfil_user"]
 
         widgets = {
             "nombre": forms.TextInput(attrs={"class": "input-field"}),
@@ -217,7 +218,7 @@ class PersonaForm(forms.ModelForm):
 class EstudianteForm(forms.ModelForm):
     class Meta:
         model = Estudiante
-        fields = ["necesidades_especiales","persona"]
+        exclude = ["persona"]
 
         widgets = {
             "necesidades_especiales": forms.Textarea(

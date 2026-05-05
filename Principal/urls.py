@@ -12,6 +12,7 @@ urlpatterns = [
   path('configuraciones/',views.configuraciones,name="configuraciones"), # configuraciones
   path('perfil/',views.perfil,name="perfil"), # url perfil de usuario
   path('registro/',views.registro,name="registro"), # url registro 
+  path('login/', views.inicioDeSesion, name='login'),
   path('gestion_acudientes_estudiantes/',views.gestion_acudientes_estudiantes,name="gestion_acudientes_estudiantes"), # url gestion acudientes y docentes
   path('admin_gestion_users/',views.gestion_users,name="admin_gestion_users"), # url gestion admin users 
   path('admin_gestion_academica/',views.gestion_academica,name="admin_gestion_academica"), # url gestion academica 

@@ -37,3 +37,8 @@ h5{
     height: 50px;
 
 }
+
+#id_password1, #id_password2 {
+    padding-right: 40px;
+    width: 100%;
+}
