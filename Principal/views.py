@@ -38,138 +38,94 @@ def salir(request):
 def home(request):
     user = request.user
     print(user.id)
-    persona = getattr(user, "persona", None)
-    estudiante = getattr(persona, "estudiante", None) if persona else None
-    
-    if not estudiante:
-       print("Este usuario no tiene estudiante asociado")
     user_id = str(user.id)
-    chat_id = request.GET.get("chat_id","default")
-    perfil = PerfilUsuario.objects.filter(user= user).first()
+    chat_id = request.GET.get("chat_id", "default")
+    perfil = PerfilUsuario.objects.filter(user=user).first()
     persona = Persona.objects.filter(perfil_user=perfil).first()
-    estudiante = Estudiante.objects.filter(persona= persona).first()
-    matricula = Matricula.objects.filter(estudiante=estudiante,activa=True).first()
+    estudiante = Estudiante.objects.filter(persona=persona).first()
+    matricula = Matricula.objects.filter(estudiante=estudiante, activa=True).first()
+
+    if not estudiante:
+        print("Este usuario no tiene estudiante asociado")
+
     chatbot = chatbotManager.get_chatbot(user_id)
     raw_historial = chatbot.get_conversation_history(chat_id, limit=50)
     chats = chatbot.memory_manager.get_user_chats()
+
+    # Perfil cognitivo — protegido contra None
+    profile = chatbot.memory_manager.get_cognitive_profile()
+    if profile is None:
+        profile = []
+
     contexto = {
         "prompt": "",
         "ruta": None,
         "audio_usuario": None,
-        "historial":  agrupar_historial_por_turnos(raw_historial),
+        "historial": agrupar_historial_por_turnos(raw_historial),
         "response": None,
         "chat_id": chat_id,
-        "chats" : chats,
-        "profile": chatbot.memory_manager.get_cognitive_profile()
-    } 
-    ruta = fr"C:\Users\User\Downloads\ProyectoDeGrado\ProyectoDeGrado\DATABASES\USERS\{user.id}\cognitive_profile.json"
- 
+        "chats": chats,
+        "profile": profile
+    }
+
+    # Ruta corregida — funciona en cualquier máquina
+    ruta = os.path.join(settings.BASE_DIR, "DATABASES", "USERS", str(user.id), "cognitive_profile.json")
+
     if os.path.exists(ruta):
         with open(ruta, "r", encoding="utf-8") as archivo:
             data = json.load(archivo)
+        registros_usuario = [r for r in data if int(r["user_id"]) == user.id]
+        registro = registros_usuario[-1] if registros_usuario else None
+        level, area, fuertes, debil, errores = get_records(registro)
+        ritmo = set_RitmoAprendizaje("Medio", "Desde JSON")
+        estilo = set_EstiloAprendizaje("Visual", "Desde JSON")
+        if estudiante:
+            set_PerfilPedagogico(estudiante, ritmo, estilo, level)
+            set_AnalisisCognitivo(estudiante, level, fuertes, debil, errores)
     else:
-        print(f"No se encontró el archivo para el usuario {user.id} creando uno nuevo ")
-        perfil = chatbot.memory_manager.build_cognitive_profile(raw_historial,user.id)
-        chatbot.memory_manager.save_cognitive_profile(dict(perfil))
-        with open(ruta, "r", encoding="utf-8") as archivo:
-            data = json.load(archivo)
+        print(f"No se encontró perfil cognitivo para usuario {user.id}, se omite por ahora")
 
-    registros_usuario = [r for r in data if int(r["user_id"]) == user.id]
-
-    registro = registros_usuario[-1] if registros_usuario else None
-    
-    level, area, fuertes, debil, errores = get_records(registro)
-    ritmo = set_RitmoAprendizaje("Medio", "Desde JSON")
-    estilo = set_EstiloAprendizaje("Visual", "Desde JSON")
-    if estudiante:
-        set_PerfilPedagogico(estudiante, ritmo, estilo, level)
-        set_AnalisisCognitivo(estudiante, level, fuertes, debil, errores)
-    # carrera = Carrera.objects.get(nombre="Ingeniería")
-    
-    # RecomendacionVocacional.objects.create(
-    #     matricula=matricula,
-    #     carrera=carrera,
-    #     compatibilidad=0.80,
-    #     conocimientos_necesarios="Álgebra, lógica",
-    #     puntaje_requerido=3.5
-    # )
-    # temas = Tema.objects.filter(nombre__icontains=area)
-    
-    # for tema in temas:
-    #     materiales = MaterialEstudio.objects.filter(tema=tema)
-    #     for material in materiales:
-    #         MaterialAsignado.objects.create(
-    #             matricula=matricula,
-    #             material=material
-    #         )
-
-
-    resultado = {"success": False, "response": None}
-    
     if request.method == "POST" and "delete_chat" in request.POST:
-       chat_id_to_delete = request.POST.get("chat_id")
-       chatbot.memory_manager.delete_chat(chat_id_to_delete)
-
-       if chat_id_to_delete == chat_id:
-           return redirect("home")
-       
-       return redirect(f"{request.path}?chat_id={chat_id}")
+        chat_id_to_delete = request.POST.get("chat_id")
+        chatbot.memory_manager.delete_chat(chat_id_to_delete)
+        if chat_id_to_delete == chat_id:
+            return redirect("home")
+        return redirect(f"{request.path}?chat_id={chat_id}")
 
     if request.method == "POST":
-        # return render(request,"home.html",contexto) 
-        # ==============datos del contexto============
-        prompt= request.POST.get("prompt","").strip()
+        prompt = request.POST.get("prompt", "").strip()
         pdf = request.FILES.get("archivo")
-        audio=request.FILES.get("audio")
+        audio = request.FILES.get("audio")
 
-        
-         # ==============borrar historial============
         if "borrarHistorial" in request.POST:
             chatbot.clear_conversation(chat_id)
             contexto["historial"] = []
-            return render(request,"home.html",contexto)
-        # **************borrar historial*************
+            return render(request, "home.html", contexto)
 
-
-        #===============crear nuevo chat ===========
-        
-        # crear un nuevo chat
         if "nuevo_chat" in request.POST:
             chat_id = chatbot.memory_manager.create_new_chat(prompt or "Nuevo Chat")
             contexto["chat_id"] = chat_id
             contexto["historial"] = []
-        #***************crear nuevo chat************
 
-        # =========enviar mensaje al chatbot========
         if prompt:
             resultado = chatbot.chat(prompt, chat_id=chat_id)
             if resultado["success"]:
                 contexto["response"] = resultado["response"]
             else:
                 contexto["response"] = f"Error: {resultado['error']}"
-        #***********enviar mensaje al chatbot*******
 
-        # ==actualizar historial después de enviar mensaje==
         contexto["historial"] = chatbot.get_conversation_history(chat_id, limit=50)
-        # **actualizar historial después de enviar mensaje**
 
-
-        # ==============guardar pdf============
         if pdf:
-           guardar_PDFs(pdf)
-        # **************guardar pdf*************
-    
-        # ==============procesar audio============
+            guardar_PDFs(pdf)
+
         if audio:
-           contexto["audio_usuario"],contexto["ruta"]= procesar_audio(audio)                
-        # **************procesar audio*************
-            
+            contexto["audio_usuario"], contexto["ruta"] = procesar_audio(audio)
+
         contexto["prompt"] = prompt
 
-    return render(request,"home.html",contexto)       # view home 
-
-# ********************************HOME**************************************************
-
+    return render(request, "home.html", contexto)
+# ********************************HOME**************************************************   # view home 
 
 
 # ==============================TEST===============================================
@@ -355,7 +311,7 @@ def editarPerfil(request):
 # =============================INICIO DE SESION======================================
 
 def inicioDeSesion(request):
-    return render(request,"InicioSesion.html")     # view iniciar secion 
+    return render(request,"login.html")     # view iniciar secion 
 # ********************************INICIO DE SESION**************************************************
 
 
@@ -367,17 +323,22 @@ def registro(request):
         persona_form = PersonaForm(request.POST)
         estudiante_form = EstudianteForm(request.POST)
 
+        # print("user_form:", user_form.errors)
+        # print("persona_form:", persona_form.errors)
+        # print("estudiante_form:", estudiante_form.errors)
+
         if (user_form.is_valid()and persona_form.is_valid()and estudiante_form.is_valid()):
             
-            user = user_form.save()
-            persona = persona_form.save(commit=False)
-            persona.user = user
-            persona.save()
-            estudiante = estudiante_form.save(commit=False)
-            estudiante.persona = persona
-            estudiante.save()
-            login(request, user)
-            return redirect("login")  
+         user = user_form.save()
+         perfil = PerfilUsuario.objects.create(user=user)
+         persona = persona_form.save(commit=False)
+         persona.user = user
+         persona.perfil_user = perfil
+         persona.save()
+         estudiante = estudiante_form.save(commit=False)
+         estudiante.persona = persona
+         estudiante.save()
+        return redirect("login")  
     else:
         user_form = UserRegisterForm()
         persona_form = PersonaForm()
